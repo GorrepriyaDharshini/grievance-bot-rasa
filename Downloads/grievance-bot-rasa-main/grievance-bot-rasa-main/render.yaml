@@ -1,0 +1,47 @@
+services:
+  # --- Flask Backend ---
+  - type: web
+    name: grievance-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    plan: free
+    envVars:
+      - key: POSTGRES_URL
+        sync: false
+      - key: RESOLVEX_SECRET_KEY
+        sync: false
+      - key: RASA_SERVER
+        sync: false
+      - key: PORT
+        value: 5000
+
+  # --- Rasa NLP Server ---
+  - type: web
+    name: rasa-server
+    runtime: python
+    buildCommand: pip install -r requirements-rasa.txt && cd rasa_bot && rasa train
+    startCommand: cd rasa_bot && rasa run --enable-api --cors "*" --port 10000
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.10.13"
+      - key: PORT
+        value: 10000
+
+  # --- Rasa Actions Server ---
+  - type: web
+    name: rasa-actions
+    runtime: python
+    buildCommand: pip install -r requirements-rasa.txt
+    startCommand: cd rasa_bot && rasa run actions --port 5055
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.10.13"
+      - key: PORT
+        value: 5055
+      - key: POSTGRES_URL
+        sync: false
+      - key: PYTHONPATH
+        value: /opt/render/project/src
