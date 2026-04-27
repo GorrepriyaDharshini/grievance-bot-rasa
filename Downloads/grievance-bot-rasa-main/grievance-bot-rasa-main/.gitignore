@@ -8,6 +8,6 @@ __pycache__/
 .DS_Store
 .env
 rasa_bot/.rasa/
-rasa_bot/models/
+# rasa_bot/models/
 rasa_bot/tmp/
 .vercel

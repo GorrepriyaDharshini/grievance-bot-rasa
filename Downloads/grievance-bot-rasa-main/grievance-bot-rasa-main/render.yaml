@@ -18,7 +18,7 @@ services:
   - type: web
     name: rasa-server
     runtime: python
-    buildCommand: pip install -r requirements-rasa.txt && cd rasa_bot && rasa train
+    buildCommand: pip install -r requirements-rasa.txt
     startCommand: cd rasa_bot && rasa run --enable-api --cors "*" --port 10000
     plan: free
     envVars:
