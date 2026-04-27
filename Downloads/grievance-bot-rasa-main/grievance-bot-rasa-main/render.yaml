@@ -1,10 +1,9 @@
 services:
   # --- Flask Backend ---
   - type: web
-    name: grievance-backend
+    name: rasa-server
     runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    buildCommand: pip install -r requirements-rasa.txt && cd rasa_bot && rasa train    startCommand: cd rasa_bot && rasa run --enable-api --cors "*" --port 10000
     plan: free
     envVars:
       - key: POSTGRES_URL
