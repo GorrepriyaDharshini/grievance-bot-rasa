@@ -1,6 +1,0 @@
-# RASA action server
-# After deploying rasa-actions on Render, replace the URL below
-# with your actual Render URL e.g. https://rasa-actions.onrender.com/webhook
-
-action_endpoint:
-  url: "https://rasa-actions-k20a.onrender.com/webhook"
