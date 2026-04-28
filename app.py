@@ -1,8 +1,10 @@
-"""Root entry point for Vercel Flask deployment."""
-from backend.app import app
+"""Root entry point for Render deployment."""
 
-# Export both names so Vercel / WSGI loaders can find the Flask app.
+from backend.app import app
+import os
+
 application = app
 
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host="0.0.0.0", port=port)

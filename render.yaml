@@ -1,18 +1,32 @@
 services:
-  # --- Rasa NLP Server ---
+  - type: web
+    name: grievance-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    plan: free
+    envVars:
+      - key: POSTGRES_URL
+        sync: false
+      - key: RESOLVEX_SECRET_KEY
+        sync: false
+      - key: RASA_SERVER
+        sync: false
+      - key: PORT
+        value: 5000
+
   - type: web
     name: rasa-server
     runtime: python
-    buildCommand: git lfs install && git lfs pull && pip install -r requirements-rasa.txt
-    startCommand: cd rasa_bot && rasa run --enable-api --cors "*" --port 10000
+    buildCommand: pip install -r requirements-rasa.txt
+    startCommand: python start_rasa.py
     plan: free
     envVars:
+      - key: PORT
+        value: 8080
       - key: PYTHON_VERSION
         value: "3.10.13"
-      - key: PORT
-        value: 10000
 
-  # --- Rasa Actions Server ---
   - type: web
     name: rasa-actions
     runtime: python
@@ -20,7 +34,11 @@ services:
     startCommand: cd rasa_bot && rasa run actions --port 5055
     plan: free
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.10.13"
       - key: PORT
         value: 5055
+      - key: POSTGRES_URL
+        sync: false
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+      - key: PYTHON_VERSION
+        value: "3.10.13"
