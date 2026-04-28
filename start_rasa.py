@@ -1,48 +1,97 @@
 """
-Start a dummy HTTP server on port 10000 immediately,
-then replace it with Rasa once model is loaded.
+Hold port open immediately for Render, then start Rasa on different port
+and proxy requests to it.
 """
 
 import os
-import subprocess
-import sys
 import threading
+import time
+import subprocess
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import urllib.request
+import urllib.error
 
-PORT = int(os.environ.get("PORT", 8080))
+RENDER_PORT = int(os.environ.get("PORT", 8080))
+RASA_PORT = 19000  # internal port for Rasa
+
+rasa_ready = False
 
 
-class WarmupHandler(BaseHTTPRequestHandler):
+class ProxyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Rasa is loading, please wait...")
+        self._proxy()
 
     def do_POST(self):
+        self._proxy()
+
+    def do_HEAD(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Rasa is loading, please wait...")
+
+    def _proxy(self):
+        global rasa_ready
+        if not rasa_ready:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Rasa is loading...")
+            return
+        target = f"http://127.0.0.1:{RASA_PORT}{self.path}"
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length else None
+            req = urllib.request.Request(
+                target,
+                data=body,
+                headers={k: v for k, v in self.headers.items()},
+                method=self.command,
+            )
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                self.send_response(resp.status)
+                for k, v in resp.headers.items():
+                    self.send_header(k, v)
+                self.end_headers()
+                self.wfile.write(resp.read())
+        except Exception as e:
+            self.send_response(502)
+            self.end_headers()
+            self.wfile.write(str(e).encode())
 
     def log_message(self, format, *args):
         pass
 
 
-def start_dummy():
-    server = HTTPServer(("0.0.0.0", PORT), WarmupHandler)
+def run_proxy():
+    server = HTTPServer(("0.0.0.0", RENDER_PORT), ProxyHandler)
+    print(f"Proxy holding port {RENDER_PORT}...")
     server.serve_forever()
 
 
-# Start dummy server in background to hold port open
-t = threading.Thread(target=start_dummy, daemon=True)
-t.start()
-print(f"Dummy server holding port {PORT}...")
+def run_rasa():
+    global rasa_ready
+    time.sleep(3)
+    os.chdir("rasa_bot")
+    env = os.environ.copy()
+    proc = subprocess.Popen(
+        ["rasa", "run", "--enable-api", "--cors", "*", "--port", str(RASA_PORT)],
+        env=env,
+    )
+    # Wait for Rasa to be ready
+    while True:
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{RASA_PORT}/", timeout=2)
+            rasa_ready = True
+            print("Rasa is ready!")
+            break
+        except:
+            time.sleep(5)
+    proc.wait()
 
-# Now start Rasa — this will fail to bind port but that's ok
-# because we just need Rasa to handle webhooks via subprocess
-import time
 
-time.sleep(2)
+# Start proxy immediately
+proxy_thread = threading.Thread(target=run_proxy, daemon=True)
+proxy_thread.start()
 
-# Replace process with Rasa
-os.chdir("rasa_bot")
-os.execvp("rasa", ["rasa", "run", "--enable-api", "--cors", "*", "--port", str(PORT)])
+# Start Rasa in background
+rasa_thread = threading.Thread(target=run_rasa)
+rasa_thread.start()
+rasa_thread.join()
